@@ -1,4 +1,4 @@
-name = "oraculum-ai"
+name = "consilium-ai"
 main = "index.js"
 compatibility_date = "2024-05-03"
 
@@ -6,5 +6,5 @@ compatibility_date = "2024-05-03"
 binding = "AI"
 
 [[kv_namespaces]]
-binding = "KV_ORACULUM"
-id = "3efc17826bae4fc180128ee8a2fefc08"
+binding = "KV_CONSILIUM"
+id = "5409693716803be3df6614f05165ccdb" # ID di esempio, da sostituire con il tuo ID KV reale
