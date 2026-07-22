@@ -1,10 +1,11 @@
-name = "consilium-ai"
+name = "consilumai"
 main = "index.js"
 compatibility_date = "2024-05-03"
+compatibility_flags = ["nodejs_compat"]
 
 [ai]
 binding = "AI"
 
 [[kv_namespaces]]
 binding = "KV_CONSILIUM"
-id = "5409693716803be3df6614f05165ccdb" # ID di esempio, da sostituire con il tuo ID KV reale
+id = "5409693716803be3df6614f05165ccdb"
