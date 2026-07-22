@@ -11,10 +11,3 @@ OraculumAI è un bot Discord avanzato che integra l'intelligenza artificiale di 
 
 ## ✒️ Autore
 Sviluppato da **lexproj**.
-
-## 🛠️ Requisiti Vocali
-Per abilitare le funzioni vocali, scaricare il modello Vosk italiano e inserirlo nella cartella `./model`.
-```bash
-wget https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip
-unzip vosk-model-small-it-0.22.zip && mv vosk-model-small-it-0.22 model
-```
