@@ -1,18 +1,20 @@
 {
   "name": "ConsiliumAI",
   "version": "2.0.0",
-  "description": "Discord AI Bot con backend AI su Cloudflare",
+  "description": "Discord AI Bot su Cloudflare Workers",
   "main": "index.js",
   "type": "module",
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
+    "dev": "wrangler dev",
     "register": "node register.js",
+    "deploy": "wrangler deploy",
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.3",
+    "discord-interactions": "^3.4.0",
     "dotenv": "16.4.5"
   }
 }
