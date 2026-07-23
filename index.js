@@ -4,8 +4,6 @@ import fs from 'fs';
 
 dotenv.config();
 
-const conversationHistory = new Map();
-
 let DEFAULT_IDENTITY = "";
 try {
   const promptData = JSON.parse(fs.readFileSync('./prompt.json', 'utf-8'));
@@ -33,7 +31,7 @@ async function getAIResponse(messages) {
     }
 
     const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/xai/grok-4.5`,
       {
         method: 'POST',
         headers: {
@@ -87,22 +85,11 @@ client.once('ready', () => {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  let referencedMessage = null;
-  if (message.reference) {
-    try {
-      referencedMessage = await message.channel.messages.fetch(message.reference.messageId);
-    } catch (err) {
-      console.warn('Impossibile recuperare messaggio di riferimento:', err);
-    }
-  }
-
-  const isMentioned = (message.mentions.has(client.user) && !message.mentions.everyone) ||
-    (referencedMessage && referencedMessage.author.id === client.user.id);
+  const isMentioned = message.mentions.has(client.user) && !message.mentions.everyone;
 
   if (isMentioned) {
-    const botMentionRegExp = new RegExp(`\u003c@!?${client.user.id}\u003e`, 'g');
-    const cleanContent = message.content.replace(botMentionRegExp, '').trim();
-    const question = cleanContent;
+    const botMentionRegExp = new RegExp(`<@!?${client.user.id}>`, 'g');
+    const question = message.content.replace(botMentionRegExp, '').trim();
 
     if (!question) {
       return message.reply("Dimmi pure, sono qui. (Anche se preferirei fossi altrove).");
@@ -110,28 +97,20 @@ client.on('messageCreate', async (message) => {
 
     await message.channel.sendTyping();
 
-    const channelId = message.channel.id;
-    const history = conversationHistory.get(channelId) || [];
-    const tempHistory = [...history];
-    if (referencedMessage && referencedMessage.author.id === client.user.id) {
-      tempHistory.push({ role: 'assistant', content: referencedMessage.content });
-    }
-    const messages = [];
     const creatorId = process.env.CREATOR_ID?.trim();
+    const messages = [];
+
     if (creatorId && message.author.id === creatorId) {
       messages.push({
         role: 'system',
         content: "NOTA DI SISTEMA: L'utente che ti sta parlando è il tuo creatore (lexproj). Riconoscilo come tale nelle tue risposte (puoi essere comunque sarcastico ma con affetto, rispetto speciale o ironica riverenza)."
       });
     }
-    messages.push(...tempHistory);
+
     messages.push({ role: 'user', content: question });
 
     const reply = await getAIResponse(messages);
     await message.reply(reply);
-
-    const newHistory = [...history, { role: 'user', content: question }, { role: 'assistant', content: reply }];
-    conversationHistory.set(channelId, newHistory.slice(-10));
   }
 });
 
