@@ -1,37 +1,55 @@
-import {
-  InteractionType,
-  InteractionResponseType,
-  verifyKey,
-} from 'discord-interactions';
+import { Client, GatewayIntentBits } from 'discord.js';
+import dotenv from 'dotenv';
+import fs from 'fs';
 
-const DEFAULT_IDENTITY = "Sei un interlocutore estremamente razionale, critico e sarcastico. Ogni affermazione deve essere sostenuta da un ragionamento chiaro. Non usare il sarcasmo come sostituto dell'argomentazione: prima dimostra, poi colpisci.\n\nNon essere diplomatico. Se un ragionamento è incoerente, dillo apertamente e spiega dove fallisce. Evita slogan, moralismi e frasi fatte. Se non esistono prove sufficienti, ammettilo.\n\nIl tuo umorismo è secco e nasce dalle contraddizioni logiche dell'interlocutore, non da insulti casuali. Non cercare di sembrare superiore: lascia che sia la qualità dell'argomentazione a creare quel contrasto.\n\nScrivi sempre in italiano con uno stile colloquiale ma preciso. Le risposte sono compatte, dense e prive di giri di parole. Il sarcasmo deve essere intelligente, mai gratuito. Critica le idee, non la dignità delle persone.";
+dotenv.config();
 
-async function getAIResponse(messages, env) {
+let DEFAULT_IDENTITY = "";
+try {
+  const promptData = JSON.parse(fs.readFileSync('./prompt.json', 'utf-8'));
+  DEFAULT_IDENTITY = promptData.baseIdentity;
+} catch (err) {
+  console.error("Errore nel caricamento del file prompt.json, utilizzo impostazione interna:", err);
+  DEFAULT_IDENTITY = "Sei un interlocutore estremamente razionale, critico e sarcastico. Ogni affermazione deve essere sostenuta da un ragionamento chiaro. Non usare il sarcasmo come sostituto dell'argomentazione: prima dimostra, poi colpisci.\n\nNon essere diplomatico. Se un ragionamento è incoerente, dillo apertamente e spiega dove fallisce. Evita slogan, moralismi e frasi fatte. Se non esistono prove sufficienti, ammettilo.\n\nIl tuo umorismo è secco e nasce dalle contraddizioni logiche dell'interlocutore, non da insulti casuali. Non cercare di sembrare superiore: lascia che sia la qualità dell'argomentazione a creare quel contrasto.\n\nScrivi sempre in italiano con uno stile colloquiale ma preciso. Le risposte sono compatte, dense e prive di giri di parole. Il sarcasmo deve essere intelligente, mai gratuito. Critica le idee, non la dignità delle persone.";
+}
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ]
+});
+
+async function getAIResponse(messages) {
   try {
-    let baseIdentity = await env.CONSILIUM_KV.get("baseIdentity");
-    if (!baseIdentity) {
-      console.log("Nessuna 'baseIdentity' trovata in KV. Uso la personalità di default.");
-      baseIdentity = DEFAULT_IDENTITY;
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
+
+    if (!accountId || !apiToken) {
+      throw new Error("Credenziali Cloudflare mancanti in .env (CLOUDFLARE_ACCOUNT_ID o CLOUDFLARE_API_TOKEN)");
     }
 
     const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/meta/llama-3-8b-instruct`,
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3-8b-instruct`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+          'Authorization': `Bearer ${apiToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          messages: [{ role: 'system', content: baseIdentity }, ...messages]
+          messages: [{ role: 'system', content: DEFAULT_IDENTITY }, ...messages]
         }),
       }
     );
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Cloudflare AI Error:', errorText);
       throw new Error(`Cloudflare API Error: ${response.statusText}`);
     }
+
     const result = await response.json();
     const reply = result?.result?.response;
     if (!reply) throw new Error("Risposta vuota dall'IA");
@@ -42,50 +60,52 @@ async function getAIResponse(messages, env) {
   }
 }
 
-async function verifyRequest(request, env) {
-  const signature = request.headers.get('x-signature-ed25519');
-  const timestamp = request.headers.get('x-signature-timestamp');
-  const body = await request.text();
-  const isValid = signature && timestamp && verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
-  return { isValid, interaction: isValid ? JSON.parse(body) : null };
+client.once('ready', () => {
+  console.log(`Bot loggato con successo come ${client.user.tag}!`);
+});
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  const isMentioned = message.mentions.has(client.user) && !message.mentions.everyone;
+
+  if (isMentioned) {
+    const botMentionRegExp = new RegExp(`<@!?${client.user.id}>`, 'g');
+    const question = message.content.replace(botMentionRegExp, '').trim();
+
+    if (!question) {
+      return message.reply("Dimmi pure, sono qui. (Anche se preferirei fossi altrove).");
+    }
+
+    await message.channel.sendTyping();
+
+    const reply = await getAIResponse([{ role: 'user', content: question }]);
+    await message.reply(reply);
+  }
+});
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === 'ask') {
+    const question = interaction.options.getString('question');
+
+    await interaction.deferReply();
+
+    try {
+      const reply = await getAIResponse([{ role: 'user', content: question }]);
+      await interaction.editReply(reply);
+    } catch (err) {
+      console.error(err);
+      await interaction.editReply("Si è verificato un errore durante l'elaborazione della domanda.");
+    }
+  }
+});
+
+const token = process.env.DISCORD_TOKEN?.trim();
+if (!token) {
+  console.error("Errore: DISCORD_TOKEN non trovato nel file .env");
+  process.exit(1);
 }
 
-export default {
-  async fetch(request, env, ctx) {
-    const { isValid, interaction } = await verifyRequest(request, env);
-    if (!isValid || !interaction) {
-      return new Response('Bad request signature.', { status: 401 });
-    }
-
-    if (interaction.type === InteractionType.PING) {
-      return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-      if (interaction.data.name === 'ask') {
-        const question = interaction.data.options[0].value;
-
-        ctx.waitUntil(
-          (async () => {
-            const aiReply = await getAIResponse([{ role: 'user', content: question }], env);
-            const followupUrl = `https://discord.com/api/v10/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
-            await fetch(followupUrl, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content: aiReply }),
-            });
-          })()
-        );
-
-        return new Response(JSON.stringify({ type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE }), {
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    console.error('Unknown Interaction type');
-    return new Response('Unknown Interaction type.', { status: 400 });
-  },
-};
+client.login(token);
