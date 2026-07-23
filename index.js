@@ -79,7 +79,19 @@ client.on('messageCreate', async (message) => {
 
     await message.channel.sendTyping();
 
-    const reply = await getAIResponse([{ role: 'user', content: question }]);
+    const creatorId = process.env.CREATOR_ID?.trim();
+    const messages = [];
+
+    if (creatorId && message.author.id === creatorId) {
+      messages.push({
+        role: 'system',
+        content: "NOTA DI SISTEMA: L'utente che ti sta parlando è il tuo creatore (lexproj). Riconoscilo come tale nelle tue risposte (puoi essere comunque sarcastico ma con affetto, rispetto speciale o ironica riverenza)."
+      });
+    }
+
+    messages.push({ role: 'user', content: question });
+
+    const reply = await getAIResponse(messages);
     await message.reply(reply);
   }
 });
