@@ -53,7 +53,25 @@ async function getAIResponse(messages) {
     const result = await response.json();
     const reply = result?.result?.response;
     if (!reply) throw new Error("Risposta vuota dall'IA");
-    return reply.length > 2000 ? reply.substring(0, 1997) + '...' : reply;
+
+    const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || "";
+    const wantsDetail = lastUserMessage.includes("approfondi") || 
+                        lastUserMessage.includes("dettaglio") || 
+                        lastUserMessage.includes("spiega meglio") || 
+                        lastUserMessage.includes("continua");
+
+    let finalReply = reply;
+    if (!wantsDetail && finalReply.length > 300) {
+      finalReply = finalReply.substring(0, 297);
+      const lastPunc = Math.max(finalReply.lastIndexOf('.'), finalReply.lastIndexOf('!'), finalReply.lastIndexOf('?'));
+      if (lastPunc > 150) {
+        finalReply = finalReply.substring(0, lastPunc + 1);
+      } else {
+        finalReply = finalReply + '...';
+      }
+    }
+
+    return finalReply.length > 2000 ? finalReply.substring(0, 1997) + '...' : finalReply;
   } catch (err) {
     console.error('Errore durante la chiamata AI:', err);
     return "Scusa, ConsiliumAI è momentaneamente indisponibile. Riprova più tardi.";
