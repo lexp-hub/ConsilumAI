@@ -1,7 +1,0 @@
-name = "consilumai"
-main = "index.js"
-compatibility_date = "2024-05-03"
-compatibility_flags = ["nodejs_compat"]
-
-[ai]
-binding = "AI"
