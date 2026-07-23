@@ -5,7 +5,6 @@ ConsiliumAI è un bot Discord avanzato che integra l'intelligenza artificiale di
 ## 🚀 Caratteristiche
 - **Integrazione Cloudflare AI**: Utilizza `@cf/meta/llama-3-8b-instruct` per risposte rapide e intelligenti.
 - **Comandi Slash**: Supporto per il comando `/ask` per interrogazioni dirette.
-- **Modalità Vocale (TTS)**: Consilium può entrare nei canali vocali e rispondere a voce (tramite Google TTS).
 - **Interazione Naturale**: Risponde automaticamente quando viene menzionato nei canali testuali.
 - **Personalità Configurabile**: La personalità del bot può essere modificata tramite il file `prompt.json`.
 

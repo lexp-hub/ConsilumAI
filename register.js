@@ -36,14 +36,6 @@ async function registerCommands() {
           options: [
             { name: 'question', description: 'La tua domanda', type: 3, required: true }
           ],
-        },
-        {
-          name: 'voice_join',
-          description: 'Fai entrare ConsiliumAI nel tuo canale vocale'
-        },
-        {
-          name: 'voice_leave',
-          description: 'Caccia ConsiliumAI dal canale vocale'
         }
       ]),
   });
