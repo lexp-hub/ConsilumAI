@@ -31,7 +31,7 @@ async function getAIResponse(messages) {
     }
 
     const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/xai/grok-4.5`,
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
       {
         method: 'POST',
         headers: {
