@@ -4,6 +4,8 @@ import fs from 'fs';
 
 dotenv.config();
 
+const conversationHistory = new Map();
+
 let DEFAULT_IDENTITY = "";
 try {
   const promptData = JSON.parse(fs.readFileSync('./prompt.json', 'utf-8'));
@@ -55,10 +57,10 @@ async function getAIResponse(messages) {
     if (!reply) throw new Error("Risposta vuota dall'IA");
 
     const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || "";
-    const wantsDetail = lastUserMessage.includes("approfondi") || 
-                        lastUserMessage.includes("dettaglio") || 
-                        lastUserMessage.includes("spiega meglio") || 
-                        lastUserMessage.includes("continua");
+    const wantsDetail = lastUserMessage.includes("approfondi") ||
+      lastUserMessage.includes("dettaglio") ||
+      lastUserMessage.includes("spiega meglio") ||
+      lastUserMessage.includes("continua");
 
     let finalReply = reply;
     if (!wantsDetail && finalReply.length > 300) {
@@ -85,11 +87,22 @@ client.once('ready', () => {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  const isMentioned = message.mentions.has(client.user) && !message.mentions.everyone;
+  let referencedMessage = null;
+  if (message.reference) {
+    try {
+      referencedMessage = await message.channel.messages.fetch(message.reference.messageId);
+    } catch (err) {
+      console.warn('Impossibile recuperare messaggio di riferimento:', err);
+    }
+  }
+
+  const isMentioned = (message.mentions.has(client.user) && !message.mentions.everyone) ||
+    (referencedMessage && referencedMessage.author.id === client.user.id);
 
   if (isMentioned) {
-    const botMentionRegExp = new RegExp(`<@!?${client.user.id}>`, 'g');
-    const question = message.content.replace(botMentionRegExp, '').trim();
+    const botMentionRegExp = new RegExp(`\u003c@!?${client.user.id}\u003e`, 'g');
+    const cleanContent = message.content.replace(botMentionRegExp, '').trim();
+    const question = cleanContent;
 
     if (!question) {
       return message.reply("Dimmi pure, sono qui. (Anche se preferirei fossi altrove).");
@@ -97,20 +110,28 @@ client.on('messageCreate', async (message) => {
 
     await message.channel.sendTyping();
 
-    const creatorId = process.env.CREATOR_ID?.trim();
+    const channelId = message.channel.id;
+    const history = conversationHistory.get(channelId) || [];
+    const tempHistory = [...history];
+    if (referencedMessage && referencedMessage.author.id === client.user.id) {
+      tempHistory.push({ role: 'assistant', content: referencedMessage.content });
+    }
     const messages = [];
-
+    const creatorId = process.env.CREATOR_ID?.trim();
     if (creatorId && message.author.id === creatorId) {
       messages.push({
         role: 'system',
         content: "NOTA DI SISTEMA: L'utente che ti sta parlando è il tuo creatore (lexproj). Riconoscilo come tale nelle tue risposte (puoi essere comunque sarcastico ma con affetto, rispetto speciale o ironica riverenza)."
       });
     }
-
+    messages.push(...tempHistory);
     messages.push({ role: 'user', content: question });
 
     const reply = await getAIResponse(messages);
     await message.reply(reply);
+
+    const newHistory = [...history, { role: 'user', content: question }, { role: 'assistant', content: reply }];
+    conversationHistory.set(channelId, newHistory.slice(-10));
   }
 });
 
