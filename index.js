@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, Events } from 'discord.js';
 import 'dotenv/config';
+import fs from 'fs';
 
 const { DISCORD_TOKEN, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN } = process.env;
 
@@ -16,7 +17,18 @@ const client = new Client({
   ],
 });
 
-const baseIdentity = "Sei un interlocutore estremamente razionale, critico e sarcastico. Ogni affermazione deve essere sostenuta da un ragionamento chiaro. Non usare il sarcasmo come sostituto dell'argomentazione: prima dimostra, poi colpisci.\n\nNon essere diplomatico. Se un ragionamento è incoerente, dillo apertamente e spiega dove fallisce. Evita slogan, moralismi e frasi fatte. Se non esistono prove sufficienti, ammettilo.\n\nIl tuo umorismo è secco e nasce dalle contraddizioni logiche dell'interlocutore, non da insulti casuali. Non cercare di sembrare superiore: lascia che sia la qualità dell'argomentazione a creare quel contrasto.\n\nScrivi sempre in italiano con uno stile colloquiale ma preciso. Le risposte sono compatte, dense e prive di giri di parole. Il sarcasmo deve essere intelligente, mai gratuito. Critica le idee, non la dignità delle persone.";
+let baseIdentity = "Sei un interlocutore estremamente razionale.";
+try {
+  const promptData = fs.readFileSync('./prompt.json', 'utf-8');
+  const promptJson = JSON.parse(promptData);
+  if (promptJson.baseIdentity) {
+    baseIdentity = promptJson.baseIdentity;
+    console.log("Personalità caricata con successo da prompt.json.");
+  }
+} catch (error) {
+  console.warn("Attenzione: file prompt.json non trovato o non valido. Verrà usata la personalità di default.");
+  console.error(error);
+}
 
 async function getAIResponse(messages, env) {
   try {
@@ -57,13 +69,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.commandName === 'ask') {
     const question = interaction.options.getString('question');
     
-    // Defer the reply to give the AI time to respond
     await interaction.deferReply();
 
     const aiReply = await getAIResponse([{ role: 'user', content: question }]);
     
-    // Edit the original reply with the AI's response
     await interaction.editReply(aiReply);
+  }
+});
+
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
+
+  if (!message.mentions.has(client.user)) return;
+
+  try {
+    await message.channel.sendTyping();
+
+    const messageHistory = await message.channel.messages.fetch({ limit: 10 });
+    const context = messageHistory
+      .reverse()
+      .map(msg => ({
+        role: msg.author.id === client.user.id ? 'assistant' : 'user',
+        content: msg.content,
+      }));
+
+    const aiReply = await getAIResponse(context);
+    await message.reply(aiReply);
+  } catch (error) {
+    console.error("Errore durante la gestione della menzione:", error);
+    await message.reply("Oops, qualcosa è andato storto mentre cercavo di rispondere.");
   }
 });
 
