@@ -5,7 +5,3 @@ compatibility_flags = ["nodejs_compat"]
 
 [ai]
 binding = "AI"
-
-[[kv_namespaces]]
-binding = "KV_CONSILIUM"
-id = "5409693716803be3df6614f05165ccdb"
