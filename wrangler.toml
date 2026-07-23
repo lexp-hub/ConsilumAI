@@ -1,0 +1,11 @@
+name = "consilumai"
+main = "index.js"
+compatibility_date = "2024-07-23"
+compatibility_flags = ["nodejs_compat"]
+
+[ai]
+binding = "AI"
+
+[[kv_namespaces]]
+binding = "CONSILIUM_KV"
+id = "1d4cea0cbe4844709e31b8c9da3f8d56"
