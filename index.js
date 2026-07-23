@@ -84,24 +84,6 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  if (interaction.commandName === 'ask') {
-    const question = interaction.options.getString('question');
-
-    await interaction.deferReply();
-
-    try {
-      const reply = await getAIResponse([{ role: 'user', content: question }]);
-      await interaction.editReply(reply);
-    } catch (err) {
-      console.error(err);
-      await interaction.editReply("Si è verificato un errore durante l'elaborazione della domanda.");
-    }
-  }
-});
-
 const token = process.env.DISCORD_TOKEN?.trim();
 if (!token) {
   console.error("Errore: DISCORD_TOKEN non trovato nel file .env");
